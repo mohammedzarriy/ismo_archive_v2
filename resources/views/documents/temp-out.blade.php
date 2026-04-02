@@ -1,15 +1,27 @@
 @extends('adminlte::page')
 @section('title', 'Retraits temporaires — Bac')
+
 @section('content_header')
-    <h1><i class="fas fa-clock"></i> Bac — Retraits temporaires</h1>
+    <div class="d-flex justify-content-between align-items-center">
+        <h1><i class="fas fa-clock"></i> Bac — Retraits temporaires</h1>
+        <span class="badge badge-warning" style="font-size:14px">
+            {{ $documents->total() }} en cours
+        </span>
+    </div>
 @stop
+
 @section('content')
 
+{{-- Filters --}}
 <div class="card mb-3">
+    <div class="card-header bg-light">
+        <h3 class="card-title"><i class="fas fa-filter"></i> Filtres</h3>
+    </div>
     <div class="card-body">
         <form method="GET" action="{{ route('documents.bac.temp-out') }}">
             <div class="row">
                 <div class="col-md-4">
+                    <label>Filière</label>
                     <select name="filiere_id" class="form-control select2">
                         <option value="">— Toutes les filières —</option>
                         @foreach($filieres as $f)
@@ -21,6 +33,7 @@
                     </select>
                 </div>
                 <div class="col-md-4">
+                    <label>Groupe</label>
                     <select name="group" class="form-control">
                         <option value="">— Tous les groupes —</option>
                         @foreach($groups as $g)
@@ -31,8 +44,8 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <button type="submit" class="btn btn-primary">
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary mr-2">
                         <i class="fas fa-filter"></i> Filtrer
                     </button>
                     <a href="{{ route('documents.bac.temp-out') }}" class="btn btn-secondary">
@@ -44,11 +57,54 @@
     </div>
 </div>
 
+{{-- Stats rapides --}}
+@php
+    $expired = 0;
+    $ok      = 0;
+    foreach($documents as $doc) {
+        $ls = $doc->movements->where('action_type','Sortie')->sortByDesc('date_action')->first();
+        $dl = $ls?->deadline ? \Carbon\Carbon::parse($ls->deadline) : null;
+        if ($dl && now()->gt($dl)) $expired++;
+        else $ok++;
+    }
+@endphp
+<div class="row mb-3">
+    <div class="col-md-4">
+        <div class="small-box bg-danger">
+            <div class="inner">
+                <h3>{{ $expired }}</h3>
+                <p>Délai expiré</p>
+            </div>
+            <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="small-box bg-warning">
+            <div class="inner">
+                <h3>{{ $ok }}</h3>
+                <p>Dans les délais</p>
+            </div>
+            <div class="icon"><i class="fas fa-clock"></i></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="small-box bg-info">
+            <div class="inner">
+                <h3>{{ $documents->total() }}</h3>
+                <p>Total en cours</p>
+            </div>
+            <div class="icon"><i class="fas fa-list"></i></div>
+        </div>
+    </div>
+</div>
+
+{{-- Table --}}
 <div class="card">
     <div class="card-body table-responsive">
         <table id="tempout-table" class="table table-bordered table-hover">
             <thead class="bg-warning">
                 <tr>
+                    <th>#</th>
                     <th>Stagiaire</th>
                     <th>CIN</th>
                     <th>Téléphone</th>
@@ -83,13 +139,32 @@
                         : null;
                 @endphp
                 <tr class="{{ $isExpired ? 'table-danger' : '' }}">
-                    <td>{{ $doc->trainee->last_name }} {{ $doc->trainee->first_name }}</td>
+                    <td>{{ $loop->iteration }}</td>
+                    <td>
+                        <a href="{{ route('trainees.show', $doc->trainee) }}">
+                            {{ $doc->trainee->last_name }} {{ $doc->trainee->first_name }}
+                        </a>
+                    </td>
                     <td>{{ $doc->trainee->cin }}</td>
-                    <td>{{ $doc->trainee->phone ?? '—' }}</td>
+                    <td>
+                        @if($doc->trainee->phone)
+                            <a href="tel:{{ $doc->trainee->phone }}">
+                                {{ $doc->trainee->phone }}
+                            </a>
+                        @else
+                            <span class="text-muted">—</span>
+                        @endif
+                    </td>
                     <td>{{ $doc->trainee->filiere->nom_filiere }}</td>
                     <td>{{ $doc->trainee->group }}</td>
-                    <td>{{ $lastSortie ? \Carbon\Carbon::parse($lastSortie->date_action)->format('d/m/Y H:i') : '—' }}</td>
-                    <td>{{ $deadline ? $deadline->format('d/m/Y H:i') : '—' }}</td>
+                    <td>
+                        {{ $lastSortie
+                            ? \Carbon\Carbon::parse($lastSortie->date_action)->format('d/m/Y H:i')
+                            : '—' }}
+                    </td>
+                    <td>
+                        {{ $deadline ? $deadline->format('d/m/Y H:i') : '—' }}
+                    </td>
                     <td>
                         @if($isExpired)
                             <span class="badge badge-danger">
@@ -100,23 +175,36 @@
                                 <i class="fas fa-hourglass-end"></i> Retard: {{ $overdue }}
                             </small>
                         @elseif($hoursLeft !== null)
-                            <span class="badge badge-warning">
-                                <i class="fas fa-clock"></i> {{ $hoursLeft }}h restantes
-                            </span>
+                            @if($hoursLeft <= 6)
+                                <span class="badge badge-danger">
+                                    <i class="fas fa-fire"></i> {{ $hoursLeft }}h restantes
+                                </span>
+                            @elseif($hoursLeft <= 24)
+                                <span class="badge badge-warning">
+                                    <i class="fas fa-clock"></i> {{ $hoursLeft }}h restantes
+                                </span>
+                            @else
+                                <span class="badge badge-success">
+                                    <i class="fas fa-check"></i> {{ $hoursLeft }}h restantes
+                                </span>
+                            @endif
                         @else
                             <span class="badge badge-secondary">—</span>
                         @endif
                     </td>
                     <td>
                         <a href="{{ route('documents.show', $doc) }}"
-                           class="btn btn-sm btn-info">
+                           class="btn btn-sm btn-info"
+                           title="Voir détails">
                             <i class="fas fa-eye"></i>
                         </a>
                         <form action="{{ route('documents.retour', $doc) }}"
                               method="POST" style="display:inline">
                             @csrf
-                            <button type="submit" class="btn btn-sm btn-success"
-                                onclick="return confirm('Confirmer le retour?')">
+                            <button type="submit"
+                                    class="btn btn-sm btn-success"
+                                    title="Confirmer le retour"
+                                    onclick="return confirm('Confirmer le retour du Bac?')">
                                 <i class="fas fa-undo"></i> Retour
                             </button>
                         </form>
@@ -124,8 +212,10 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="9" class="text-center text-success">
-                        <i class="fas fa-check-circle"></i> Aucun retrait temporaire en cours
+                    <td colspan="10" class="text-center py-4 text-success">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                        <br>
+                        <strong>Aucun retrait temporaire en cours</strong>
                     </td>
                 </tr>
                 @endforelse
@@ -135,12 +225,15 @@
     </div>
 </div>
 @stop
+
 @section('js')
 <script>
     $('#tempout-table').DataTable({
-        "language": {"url": "//cdn.datatables.net/plug-ins/1.10.19/i18n/French.json"},
+        "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.10.19/i18n/French.json"
+        },
         "paging": false,
-        "order": [[7, "desc"]]
+        "order": [[8, "desc"]]
     });
     $('.select2').select2();
 </script>

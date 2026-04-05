@@ -64,7 +64,7 @@ class TraineeController extends Controller
 
     public function show(Trainee $trainee)
     {
-        $trainee->load('filiere.secteur', 'documents.movements');
+        $trainee->load('filiere.secteur', 'documents.movements.user');
         return view('trainees.show', compact('trainee'));
     }
 

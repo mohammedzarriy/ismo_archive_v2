@@ -169,6 +169,27 @@
 
 @section('css')
 <style>
-    .small-box .icon { font-size: 70px; top: 15px; }
+    /* AdminLTE small-box: keep icon positioned and visible (fixed layout can confuse stacking) */
+    .small-box {
+        position: relative;
+        overflow: hidden;
+    }
+    .small-box .inner {
+        position: relative;
+        z-index: 1;
+    }
+    .small-box .icon {
+        position: absolute;
+        right: 10px;
+        top: 15px;
+        line-height: 1;
+        font-size: 70px;
+        z-index: 0;
+        color: rgba(0, 0, 0, 0.15);
+    }
+    .small-box .icon > i {
+        display: inline-block;
+        vertical-align: middle;
+    }
 </style>
 @stop

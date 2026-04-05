@@ -16,11 +16,16 @@
 
 <div class="card">
     <div class="card-body">
-        <div class="alert alert-info">
-            <strong>Format requis du fichier Excel:</strong>
-            <br>
-            Colonnes: <code>cin | nom | prenom | cef | filiere | groupe | annee | date_de_naissance</code>
-</div>
+        <div class="alert alert-info mb-3">
+            <strong>En-têtes Excel attendues (ligne 1)</strong> — correspondance automatique (casse / accents tolérés) :
+            <ul class="mb-0 mt-2 small">
+                <li><code>id_inscriptionsessionprogramme</code>, <code>MatriculeEtudiant</code>, <code>Nom</code>, <code>Prenom</code>, <code>Sexe</code>, <code>EtudiantActif</code></li>
+                <li><code>diplome</code>, <code>Principale</code>, <code>LibelleLong</code>, <code>CodeDiplome</code>, <code>Code</code>, <code>EtudiantPayant</code>, <code>codediplome1</code>, <code>prenom2</code></li>
+                <li><code>DateNaissance</code>, <code>Site</code>, <code>Regimeinscription</code>, <code>DateInscription</code>, <code>DateDossierComplet</code>, <code>LieuNaissance</code>, <code>MotifAdmission</code></li>
+                <li><code>CIN</code>, <code>NTelelephone</code>, <code>NTel_du_Tuteur</code>, <code>Adresse</code>, <code>Nationalite</code>, <code>anneeEtude</code></li>
+                <li><code>Nom_Arabe</code>, <code>Prenom_arabe</code>, <code>NiveauScolaire</code></li>
+                <li class="mt-1">Optionnel : <code>filiere</code> / <code>CodeDiplome</code> = code filière (table <code>filieres.code_filiere</code>), <code>groupe</code>, <code>cef</code>, <code>annee</code> (promotion)</li>
+            </ul>
         </div>
 
         <form action="{{ route('trainees.import.store') }}" method="POST" enctype="multipart/form-data">

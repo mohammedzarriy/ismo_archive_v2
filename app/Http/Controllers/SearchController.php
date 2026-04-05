@@ -13,22 +13,26 @@ class SearchController extends Controller
         $results = [];
 
         if ($query && strlen($query) >= 2) {
-            $results = Trainee::with('filiere', 'documents')
-                ->where('cin', 'LIKE', "%{$query}%")
-                ->orWhere('cef', 'LIKE', "%{$query}%")
-                ->orWhere('first_name', 'LIKE', "%{$query}%")
-                ->orWhere('last_name', 'LIKE', "%{$query}%")
+            $like = '%'.$query.'%';
+            $results = Trainee::with('filiere', 'documents', 'validation')
+                ->where(function ($q) use ($like) {
+                    $q->where('cin', 'LIKE', $like)
+                        ->orWhere('cef', 'LIKE', $like)
+                        ->orWhere('first_name', 'LIKE', $like)
+                        ->orWhere('last_name', 'LIKE', $like)
+                        ->orWhere('matricule_etudiant', 'LIKE', $like);
+                })
                 ->limit(10)
                 ->get()
                 ->map(function ($t) {
                     return [
                         'id'         => $t->id,
-                        'name'       => $t->last_name . ' ' . $t->first_name,
+                        'name'       => $t->last_name.' '.$t->first_name,
                         'cin'        => $t->cin,
                         'cef'        => $t->cef ?? '—',
-                        'filiere'    => $t->filiere->nom_filiere,
+                        'filiere'    => $t->filiere?->nom_filiere ?? '—',
                         'url'        => route('trainees.show', $t),
-                        'validated'  => $t->validation ? true : false,
+                        'validated'  => (bool) $t->validation,
                         'docs_count' => $t->documents->count(),
                     ];
                 });

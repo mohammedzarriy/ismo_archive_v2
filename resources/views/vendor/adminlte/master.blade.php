@@ -1,101 +1,144 @@
-@include('layouts.search')
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 
-<script>
-// فتح البحث بـ Ctrl+K أو Click على أيقونة البحث
-document.addEventListener('keydown', function(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        openSearch();
-    }
-    if (e.key === 'Escape') closeSearch();
-});
+<head>
 
-// اعتراض زر البحث ديال AdminLTE
-document.addEventListener('DOMContentLoaded', function() {
-    var searchBtn = document.querySelector('.nav-link[data-widget="navbar-search"]');
-    if (searchBtn) {
-        searchBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            openSearch();
-        });
-    }
-});
+    {{-- Base Meta Tags --}}
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
-function openSearch() {
-    document.getElementById('global-search-wrapper').style.display = 'block';
-    setTimeout(() => document.getElementById('global-search-input').focus(), 100);
-}
+    {{-- Custom Meta Tags --}}
+    @yield('meta_tags')
 
-function closeSearch() {
-    document.getElementById('global-search-wrapper').style.display = 'none';
-    document.getElementById('global-search-input').value = '';
-    document.getElementById('search-results').innerHTML =
-        '<p class="text-muted text-center py-3 mb-0"><i class="fas fa-keyboard"></i> Tapez au moins 2 caractères...</p>';
-}
+    {{-- Title --}}
+    <title>
+        @yield('title_prefix', config('adminlte.title_prefix', ''))
+        @yield('title', config('adminlte.title', 'AdminLTE 3'))
+        @yield('title_postfix', config('adminlte.title_postfix', ''))
+    </title>
 
-// البحث الفوري
-let searchTimer;
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('global-search-input').addEventListener('input', function() {
-        clearTimeout(searchTimer);
-        var q = this.value.trim();
-
-        if (q.length < 2) {
-            document.getElementById('search-results').innerHTML =
-                '<p class="text-muted text-center py-3 mb-0"><i class="fas fa-keyboard"></i> Tapez au moins 2 caractères...</p>';
-            return;
+    {{-- IFrame Preloader Removal Workaround --}}
+    <!-- IFrame Preloader Removal Workaround -->
+    <style type="text/css">
+        body.iframe-mode .preloader {
+            display: none !important;
         }
+    </style>
 
-        document.getElementById('search-results').innerHTML =
-            '<p class="text-center py-3 mb-0"><i class="fas fa-spinner fa-spin"></i> Recherche...</p>';
+    {{-- Custom stylesheets (pre AdminLTE) --}}
+    @yield('adminlte_css_pre')
 
-        searchTimer = setTimeout(() => {
-            fetch('/search?q=' + encodeURIComponent(q), {
-                headers: {'X-Requested-With': 'XMLHttpRequest'}
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.length === 0) {
-                    document.getElementById('search-results').innerHTML =
-                        '<p class="text-muted text-center py-3 mb-0"><i class="fas fa-search"></i> Aucun résultat trouvé</p>';
-                    return;
-                }
+    {{-- Base Stylesheets (depends on Laravel asset bundling tool) --}}
+    @if(config('adminlte.enabled_laravel_mix', false))
+        <link rel="stylesheet" href="{{ mix(config('adminlte.laravel_mix_css_path', 'css/app.css')) }}">
+    @else
+        @switch(config('adminlte.laravel_asset_bundling', false))
+            @case('mix')
+                <link rel="stylesheet" href="{{ mix(config('adminlte.laravel_css_path', 'css/app.css')) }}">
+            @break
 
-                var html = '';
-                data.forEach(function(t) {
-                    html += `
-                    <a href="${t.url}" onclick="closeSearch()"
-                       style="display:flex; align-items:center; gap:12px;
-                              padding:10px 12px; border-radius:6px; color:inherit;
-                              text-decoration:none; border-bottom:1px solid #f0f0f0"
-                       onmouseover="this.style.background='#f8f9fa'"
-                       onmouseout="this.style.background='none'">
-                        <div style="width:40px; height:40px; border-radius:50%;
-                                    background:${t.validated ? '#28a745' : '#6c757d'};
-                                    display:flex; align-items:center; justify-content:center;
-                                    color:white; font-weight:bold; flex-shrink:0">
-                            ${t.name.charAt(0)}
-                        </div>
-                        <div style="flex:1">
-                            <div style="font-weight:500">${t.name}</div>
-                            <div style="font-size:12px; color:#6c757d">
-                                CIN: ${t.cin} | CEF: ${t.cef} | ${t.filiere}
-                            </div>
-                        </div>
-                        <div style="text-align:right; flex-shrink:0">
-                            ${t.validated
-                                ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:12px;font-size:11px"><i class="fas fa-check"></i> Validé</span>'
-                                : '<span style="background:#e2e3e5;color:#383d41;padding:2px 8px;border-radius:12px;font-size:11px">En cours</span>'
-                            }
-                            <div style="font-size:11px;color:#6c757d;margin-top:2px">${t.docs_count} doc(s)</div>
-                        </div>
-                    </a>`;
-                });
+            @case('vite')
+                @vite([config('adminlte.laravel_css_path', 'resources/css/app.css'), config('adminlte.laravel_js_path', 'resources/js/app.js')])
+            @break
 
-                document.getElementById('search-results').innerHTML = html;
-            });
-        }, 300);
-    });
-});
-</script>
+            @case('vite_js_only')
+                @vite(config('adminlte.laravel_js_path', 'resources/js/app.js'))
+            @break
+
+            @default
+                <link rel="stylesheet" href="{{ asset('vendor/fontawesome-free/css/all.min.css') }}">
+                <link rel="stylesheet" href="{{ asset('vendor/overlayScrollbars/css/OverlayScrollbars.min.css') }}">
+                <link rel="stylesheet" href="{{ asset('vendor/adminlte/dist/css/adminlte.min.css') }}">
+
+                @if(config('adminlte.google_fonts.allowed', true))
+                    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,700,300italic,400italic,600italic">
+                @endif
+        @endswitch
+    @endif
+
+    {{-- Extra Configured Plugins Stylesheets --}}
+    @include('adminlte::plugins', ['type' => 'css'])
+
+    {{-- Livewire Styles --}}
+    @if(config('adminlte.livewire'))
+        @if(intval(app()->version()) >= 7)
+            @livewireStyles
+        @else
+            <livewire:styles />
+        @endif
+    @endif
+
+    {{-- Custom Stylesheets (post AdminLTE) --}}
+    @yield('adminlte_css')
+
+    {{-- Favicon --}}
+    @if(config('adminlte.use_ico_only'))
+        <link rel="shortcut icon" href="{{ asset('favicons/favicon.ico') }}" />
+    @elseif(config('adminlte.use_full_favicon'))
+        <link rel="shortcut icon" href="{{ asset('favicons/favicon.ico') }}" />
+        <link rel="apple-touch-icon" sizes="57x57" href="{{ asset('favicons/apple-icon-57x57.png') }}">
+        <link rel="apple-touch-icon" sizes="60x60" href="{{ asset('favicons/apple-icon-60x60.png') }}">
+        <link rel="apple-touch-icon" sizes="72x72" href="{{ asset('favicons/apple-icon-72x72.png') }}">
+        <link rel="apple-touch-icon" sizes="76x76" href="{{ asset('favicons/apple-icon-76x76.png') }}">
+        <link rel="apple-touch-icon" sizes="114x114" href="{{ asset('favicons/apple-icon-114x114.png') }}">
+        <link rel="apple-touch-icon" sizes="120x120" href="{{ asset('favicons/apple-icon-120x120.png') }}">
+        <link rel="apple-touch-icon" sizes="144x144" href="{{ asset('favicons/apple-icon-144x144.png') }}">
+        <link rel="apple-touch-icon" sizes="152x152" href="{{ asset('favicons/apple-icon-152x152.png') }}">
+        <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('favicons/apple-icon-180x180.png') }}">
+        <link rel="icon" type="image/png" sizes="16x16" href="{{ asset('favicons/favicon-16x16.png') }}">
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicons/favicon-32x32.png') }}">
+        <link rel="icon" type="image/png" sizes="96x96" href="{{ asset('favicons/favicon-96x96.png') }}">
+        <link rel="icon" type="image/png" sizes="192x192" href="{{ asset('favicons/android-icon-192x192.png') }}">
+        <link rel="manifest" crossorigin="use-credentials" href="{{ asset('favicons/manifest.json') }}">
+        <meta name="msapplication-TileColor" content="#ffffff">
+        <meta name="msapplication-TileImage" content="{{ asset('favicons/ms-icon-144x144.png') }}">
+    @endif
+
+</head>
+
+<body class="@yield('classes_body')" @yield('body_data')>
+
+    {{-- Body Content --}}
+    @yield('body')
+
+    {{-- Base Scripts (depends on Laravel asset bundling tool) --}}
+    @if(config('adminlte.enabled_laravel_mix', false))
+        <script src="{{ mix(config('adminlte.laravel_mix_js_path', 'js/app.js')) }}"></script>
+    @else
+        @switch(config('adminlte.laravel_asset_bundling', false))
+            @case('mix')
+                <script src="{{ mix(config('adminlte.laravel_js_path', 'js/app.js')) }}"></script>
+            @break
+
+            @case('vite')
+            @case('vite_js_only')
+            @break
+
+            @default
+                <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
+                <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+                <script src="{{ asset('vendor/overlayScrollbars/js/jquery.overlayScrollbars.min.js') }}"></script>
+                <script src="{{ asset('vendor/adminlte/dist/js/adminlte.min.js') }}"></script>
+        @endswitch
+    @endif
+
+    {{-- Extra Configured Plugins Scripts --}}
+    @include('adminlte::plugins', ['type' => 'js'])
+
+    {{-- Livewire Script --}}
+    @if(config('adminlte.livewire'))
+        @if(intval(app()->version()) >= 7)
+            @livewireScripts
+        @else
+            <livewire:scripts />
+        @endif
+    @endif
+
+    {{-- Custom Scripts --}}
+    @yield('adminlte_js')
+
+</body>
+
+</html>

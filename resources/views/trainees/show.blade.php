@@ -64,9 +64,9 @@
                     </div>
                 @endif
                 <h4>{{ $trainee->last_name }} {{ $trainee->first_name }}</h4>
-                <p class="text-muted mb-0">{{ $trainee->filiere->nom_filiere }}</p>
+                <p class="text-muted mb-0">{{ $trainee->filiere?->nom_filiere ?? '—' }}</p>
                 <p class="text-muted">
-                    <small>{{ $trainee->filiere->secteur->nom_secteur }}</small>
+                    <small>{{ $trainee->filiere?->secteur?->nom_secteur ?? '—' }}</small>
                 </p>
 
                 @if($trainee->validation)
@@ -118,6 +118,57 @@
                 </table>
             </div>
         </div>
+
+        @php
+            $extraRows = [
+                ['id_inscription_session_programme', 'ID inscription session', $trainee->id_inscription_session_programme],
+                ['matricule_etudiant', 'Matricule étudiant', $trainee->matricule_etudiant],
+                ['sexe', 'Sexe', $trainee->sexe],
+                ['etudiant_actif', 'Étudiant actif', $trainee->etudiant_actif === null ? null : ($trainee->etudiant_actif ? 'Oui' : 'Non')],
+                ['diplome', 'Diplôme', $trainee->diplome],
+                ['principale', 'Principale', $trainee->principale === null ? null : ($trainee->principale ? 'Oui' : 'Non')],
+                ['libelle_long', 'Libellé long', $trainee->libelle_long],
+                ['code_diplome', 'Code diplôme', $trainee->code_diplome],
+                ['inscription_code', 'Code', $trainee->inscription_code],
+                ['etudiant_payant', 'Étudiant payant', $trainee->etudiant_payant === null ? null : ($trainee->etudiant_payant ? 'Oui' : 'Non')],
+                ['code_diplome_1', 'Code diplôme (1)', $trainee->code_diplome_1],
+                ['prenom_2', 'Prénom 2', $trainee->prenom_2],
+                ['site', 'Site', $trainee->site],
+                ['regime_inscription', 'Régime inscription', $trainee->regime_inscription],
+                ['date_inscription', 'Date inscription', $trainee->date_inscription?->format('d/m/Y')],
+                ['date_dossier_complet', 'Date dossier complet', $trainee->date_dossier_complet?->format('d/m/Y')],
+                ['lieu_naissance', 'Lieu naissance', $trainee->lieu_naissance],
+                ['motif_admission', 'Motif admission', $trainee->motif_admission],
+                ['tel_tuteur', 'Tél. tuteur', $trainee->tel_tuteur],
+                ['adresse', 'Adresse', $trainee->adresse],
+                ['nationalite', 'Nationalité', $trainee->nationalite],
+                ['annee_etude', 'Année étude', $trainee->annee_etude],
+                ['nom_arabe', 'Nom (arabe)', $trainee->nom_arabe],
+                ['prenom_arabe', 'Prénom (arabe)', $trainee->prenom_arabe],
+                ['niveau_scolaire', 'Niveau scolaire', $trainee->niveau_scolaire],
+            ];
+            $hasExtra = collect($extraRows)->contains(fn ($r) => filled($r[2]));
+        @endphp
+        @if($hasExtra)
+        <div class="card card-outline card-secondary mt-3">
+            <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-id-card"></i> Données inscription (import)</h3>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-striped mb-0">
+                    <tbody>
+                        @foreach($extraRows as [$key, $label, $val])
+                            @continue(!filled($val))
+                            <tr>
+                                <th class="pl-3 text-nowrap" style="width:40%">{{ $label }}</th>
+                                <td>{{ $val }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        @endif
     </div>
 
     {{-- Colonne droite --}}

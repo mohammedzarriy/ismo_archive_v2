@@ -49,6 +49,7 @@
             @include('adminlte::partials.sidebar.right-sidebar')
         @endif
 
+        @include('layouts.search')
     </div>
 @stop
 

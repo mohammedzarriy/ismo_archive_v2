@@ -9,27 +9,22 @@ use App\Models\Document;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         //
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
-        // تعريف صلاحية إدارة المستخدمين
+        // صلاحية إدارة المستخدمين
         Gate::define('manage-users', function ($user) {
             return $user->hasRole('admin');
         });
 
-        // Badge: عدد الـ Temp-Out المنتهية (مثال للوثائق من نوع Bac)
+        // Badge عدد الـ Temp-Out المنتهية
         View::composer('*', function ($view) {
             if (auth()->check()) {
+
                 $expiredBacCount = Document::where('type', 'Bac')
                     ->where('status', 'Temp_Out')
                     ->whereHas('movements', function ($q) {
@@ -39,7 +34,6 @@ class AppServiceProvider extends ServiceProvider
                     })
                     ->count();
 
-                //
                 $view->with('expiredBacCount', $expiredBacCount);
             }
         });

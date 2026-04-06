@@ -11,11 +11,11 @@
 
 @section('content')
 
-{{-- 🔴 Alerte Bac dépassé --}}
+{{-- Alerte globale pour les Bac dépassant 48h --}}
 @if($stats['bac_expired'] > 0)
 <div class="alert alert-danger alert-dismissible fade show">
     <button type="button" class="close" data-dismiss="alert">&times;</button>
-    <h5><i class="fas fa-exclamation-triangle"></i> Attention !</h5>
+    <h5><i class="fas fa-exclamation-triangle"></i> Attention</h5>
     <strong>{{ $stats['bac_expired'] }}</strong> stagiaire(s) ont dépassé le délai de 48h
     pour le retour du Baccalauréat.
     <a href="{{ url('documents/bac/temp-out') }}" class="btn btn-sm btn-danger ml-2">
@@ -24,13 +24,13 @@
 </div>
 @endif
 
-{{-- Stats Cards --}}
+{{-- Cartes statistiques --}}
 <div class="row">
     <div class="col-lg-3 col-6">
         <div class="small-box bg-info">
             <div class="inner">
                 <h3>{{ $stats['total_stagiaires'] }}</h3>
-                <p>Total Stagiaires</p>
+                <p>Total des stagiaires</p>
             </div>
             <div class="icon"><i class="fas fa-users"></i></div>
             <a href="{{ url('trainees') }}" class="small-box-footer">
@@ -79,14 +79,49 @@
     </div>
 </div>
 
+{{-- Bloc des alertes détaillées 40h+ --}}
+@if($bac_alerts->count())
+<div class="card card-warning">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-exclamation-triangle mr-1"></i>
+            Alertes détaillées — Bac en sortie temporaire
+        </h3>
+    </div>
+
+    <div class="card-body">
+        @foreach($bac_alerts as $doc)
+            @php
+                $isEcoule = $doc->alert_level === 'ecoule';
+                $bgClass  = $isEcoule ? 'alert alert-danger' : 'alert alert-warning';
+                $icon     = $isEcoule ? '🔴' : '🟠';
+            @endphp
+
+            <div class="{{ $bgClass }} mb-2">
+                {{ $icon }}
+                <strong>{{ $doc->trainee->first_name }} {{ $doc->trainee->last_name }}</strong>
+                — {{ $doc->type }}
+                — <span class="font-weight-bold">{{ $doc->hours_out }}h</span> depuis la sortie
+
+                @if($isEcoule)
+                    <span class="badge badge-danger ml-2">Délai dépassé 48h+</span>
+                @else
+                    <span class="badge badge-warning ml-2">Alerte 40h+</span>
+                @endif
+            </div>
+        @endforeach
+    </div>
+</div>
+@endif
+
 <div class="row">
-    {{-- Alertes Bac --}}
+    {{-- Liste simple des Bac en alerte --}}
     <div class="col-md-6">
         <div class="card card-warning">
             <div class="card-header">
                 <h3 class="card-title">
-                    <i class="fas fa-exclamation-triangle mr-1"></i>
-                    Alertes — Bac non retourné
+                    <i class="fas fa-exclamation-circle mr-1"></i>
+                    Bac non retourné
                 </h3>
             </div>
             <div class="card-body p-0">
@@ -118,7 +153,7 @@
         </div>
     </div>
 
-    {{-- Derniers Mouvements --}}
+    {{-- Derniers mouvements --}}
     <div class="col-md-6">
         <div class="card card-primary">
             <div class="card-header">
@@ -151,7 +186,7 @@
                                     <span class="badge badge-info">Saisie</span>
                                 @endif
                             </td>
-                            <td>{{ \Carbon\Carbon::parse($mov->date_action)->format('d/m/Y') }}</td>
+                            <td>{{ \Carbon\Carbon::parse($mov->date_action)->format('d/m/Y H:i') }}</td>
                         </tr>
                         @empty
                         <tr>
@@ -165,19 +200,52 @@
     </div>
 </div>
 
+{{-- Tableau des documents écoulés --}}
+@if($ecouleDocs->count())
+<div class="card card-danger mt-4">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-folder-open mr-1"></i>
+            Documents écoulés — délai supérieur à 48h
+        </h3>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-bordered table-hover mb-0">
+            <thead class="bg-danger text-white">
+                <tr>
+                    <th>Stagiaire</th>
+                    <th>Type de document</th>
+                    <th>Date de mise à jour</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($ecouleDocs as $doc)
+                <tr>
+                    <td>{{ $doc->trainee->first_name }} {{ $doc->trainee->last_name }}</td>
+                    <td>{{ $doc->type }}</td>
+                    <td>{{ $doc->updated_at->format('d/m/Y H:i') }}</td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+</div>
+@endif
+
 @stop
 
 @section('css')
 <style>
-    /* AdminLTE small-box: keep icon positioned and visible (fixed layout can confuse stacking) */
     .small-box {
         position: relative;
         overflow: hidden;
     }
+
     .small-box .inner {
         position: relative;
         z-index: 1;
     }
+
     .small-box .icon {
         position: absolute;
         right: 10px;
@@ -187,6 +255,7 @@
         z-index: 0;
         color: rgba(0, 0, 0, 0.15);
     }
+
     .small-box .icon > i {
         display: inline-block;
         vertical-align: middle;

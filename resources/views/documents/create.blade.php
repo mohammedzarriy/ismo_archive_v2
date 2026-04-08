@@ -23,20 +23,38 @@
                         @error('trainee_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                 </div>
+
                 <div class="col-md-6">
                     <div class="form-group">
                         <label>Type <span class="text-danger">*</span></label>
-                        <select name="type" class="form-control @error('type') is-invalid @enderror" required>
+                        <select name="type" id="type-select" class="form-control @error('type') is-invalid @enderror" required>
                             <option value="">-- Choisir --</option>
-                            <option value="Bac">Baccalauréat</option>
-                            <option value="Diplome">Diplôme</option>
-                            <option value="Attestation">Attestation</option>
-                            <option value="Bulletin">Bulletin de notes</option>
+                            <option value="Bac" {{ old('type') == 'Bac' ? 'selected' : '' }}>Baccalauréat</option>
+                            <option value="Diplome" {{ old('type') == 'Diplome' ? 'selected' : '' }}>Diplôme</option>
+                            <option value="Attestation" {{ old('type') == 'Attestation' ? 'selected' : '' }}>Attestation</option>
+                            <option value="Bulletin" {{ old('type') == 'Bulletin' ? 'selected' : '' }}>Bulletin de notes</option>
                         </select>
                         @error('type')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
                 </div>
-                <div class="col-md-6">
+
+                {{-- يظهر فقط إذا اختار Bac --}}
+                <div class="col-md-6" id="bac-status-div" style="display:none">
+                    <div class="form-group">
+                        <label>Type de retrait <span class="text-danger">*</span></label>
+                        <select name="bac_status" id="bac-status" class="form-control">
+                            <option value="Temp_Out">Retrait temporaire</option>
+                            <option value="Final_Out">Retrait définitif</option>
+                        </select>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i>
+                            Temporaire = retour obligatoire | Définitif = remis définitivement
+                        </small>
+                    </div>
+                </div>
+
+                {{-- يظهر فقط إذا مش Bac --}}
+                <div class="col-md-6" id="level-year-div">
                     <div class="form-group">
                         <label>Année (1 ou 2)</label>
                         <select name="level_year" class="form-control">
@@ -46,6 +64,7 @@
                         </select>
                     </div>
                 </div>
+
                 <div class="col-md-6">
                     <div class="form-group">
                         <label>Numéro de référence</label>
@@ -55,6 +74,7 @@
                     </div>
                 </div>
             </div>
+
             <button type="submit" class="btn btn-primary">
                 <i class="fas fa-save"></i> Enregistrer
             </button>
@@ -65,6 +85,26 @@
     </div>
 </div>
 @stop
+
 @section('js')
-<script>$('.select2').select2();</script>
+<script>
+$('.select2').select2();
+
+$('#type-select').on('change', function() {
+    var type = $(this).val();
+
+    if (type === 'Bac') {
+        $('#bac-status-div').show();
+        $('#level-year-div').hide();
+    } else {
+        $('#bac-status-div').hide();
+        $('#level-year-div').show();
+    }
+});
+
+if ('{{ old('type') }}' === 'Bac') {
+    $('#bac-status-div').show();
+    $('#level-year-div').hide();
+}
+</script>
 @stop

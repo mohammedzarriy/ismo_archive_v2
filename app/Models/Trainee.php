@@ -45,6 +45,7 @@ class Trainee extends Model
         'group',
         'graduation_year',
         'image_profile',
+        'statut',
     ];
 
     protected function casts(): array

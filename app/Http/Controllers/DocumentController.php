@@ -38,24 +38,47 @@ class DocumentController extends Controller
             'reference_number' => 'nullable|string|max:100',
         ]);
 
+        $status = $request->type === 'Bac'
+            ? ($request->bac_status ?? 'Temp_Out')
+            : 'Stock';
+
         $document = Document::create([
             'trainee_id'       => $request->trainee_id,
             'type'             => $request->type,
             'level_year'       => $request->level_year,
-            'status'           => 'Stock',
+            'status'           => $status,
             'reference_number' => $request->reference_number,
         ]);
+
+        $actionType = ($request->type === 'Bac' && $status !== 'Stock')
+            ? 'Sortie'
+            : 'Saisie';
+
+        $deadline = ($status === 'Temp_Out') ? now()->addHours(48) : null;
 
         Movement::create([
             'document_id'  => $document->id,
             'user_id'      => Auth::id(),
-            'action_type'  => 'Saisie',
+            'action_type'  => $actionType,
             'date_action'  => now(),
-            'observations' => 'Document enregistré',
+            'deadline'     => $deadline,
+            'observations' => match ($status) {
+                'Temp_Out'  => 'Retrait temporaire (48h)',
+                'Final_Out' => 'Retrait définitif',
+                default     => 'Document enregistré',
+            },
         ]);
 
-        return redirect()->route('documents.index')
-            ->with('success', 'Document ajouté avec succès!');
+        return match ($status) {
+            'Temp_Out'  => redirect()->route('documents.bac.temp-out')
+                ->with('success', 'Bac en retrait temporaire ✅'),
+
+            'Final_Out' => redirect()->route('documents.bac.final-out')
+                ->with('success', 'Bac en retrait définitif ✅'),
+
+            default => redirect()->route('documents.index')
+                ->with('success', 'Document ajouté ✅'),
+        };
     }
 
     public function show(Document $document)
@@ -89,7 +112,7 @@ class DocumentController extends Controller
         ]);
 
         return redirect()->route('documents.show', $document)
-            ->with('success', 'Document sorti avec succès!');
+            ->with('success', 'Sortie enregistrée ✅');
     }
 
     public function retour(Request $request, Document $document)
@@ -101,39 +124,75 @@ class DocumentController extends Controller
             'user_id'      => Auth::id(),
             'action_type'  => 'Retour',
             'date_action'  => now(),
-            'observations' => $request->observations,
+            'observations' => $request->observations ?? 'Retour du document',
         ]);
 
         return redirect()->route('documents.show', $document)
-            ->with('success', 'Document retourné avec succès!');
+            ->with('success', 'Retour effectué ✅');
     }
 
-    // 🔶 Retraits temporaires
+    // 🟡 Retraits temporaires (UPDATED)
     public function tempOut(Request $request)
     {
         $filieres = Filiere::all();
-        $groups   = Trainee::distinct()->pluck('group');
 
-        $documents = Document::with('trainee.filiere', 'movements')
+        $groups = Trainee::select('group')
+            ->distinct()
+            ->orderBy('group')
+            ->pluck('group');
+
+        $years = Trainee::select('graduation_year')
+            ->distinct()
+            ->orderByDesc('graduation_year')
+            ->pluck('graduation_year');
+
+        $annees_etude = Trainee::select('annee_etude')
+            ->whereNotNull('annee_etude')
+            ->distinct()
+            ->orderBy('annee_etude')
+            ->pluck('annee_etude');
+
+        $documents = Document::with(['trainee.filiere', 'movements'])
             ->where('type', 'Bac')
             ->where('status', 'Temp_Out')
+<<<<<<< HEAD
             ->whereHas('movements', function($q) {
                 $q->where('action_type', 'Sortie')
                   ->where('deadline', '>=', now());
             })
+=======
+
+>>>>>>> c60b001b9a0eea696220532c2e90993880ff71ce
             ->when($request->filiere_id, fn($q) =>
                 $q->whereHas('trainee', fn($q) =>
                     $q->where('filiere_id', $request->filiere_id)))
+
             ->when($request->group, fn($q) =>
                 $q->whereHas('trainee', fn($q) =>
                     $q->where('group', $request->group)))
+
+            ->when($request->graduation_year, fn($q) =>
+                $q->whereHas('trainee', fn($q) =>
+                    $q->where('graduation_year', $request->graduation_year)))
+
+            ->when($request->annee_etude, fn($q) =>
+                $q->whereHas('trainee', fn($q) =>
+                    $q->where('annee_etude', $request->annee_etude)))
+
             ->latest()
             ->paginate(15)
             ->withQueryString();
 
-        return view('documents.temp-out', compact('documents', 'filieres', 'groups'));
+        return view('documents.temp-out', compact(
+            'documents',
+            'filieres',
+            'groups',
+            'years',
+            'annees_etude'
+        ));
     }
 
+<<<<<<< HEAD
     // 🔴 Retraits écoulés (NEW)
     public function ecoule(Request $request)
     {
@@ -161,12 +220,15 @@ class DocumentController extends Controller
     }
 
     // 🔴 Retraits définitifs (NEW)
+=======
+    // 🔴 Retraits définitifs
+>>>>>>> c60b001b9a0eea696220532c2e90993880ff71ce
     public function finalOut(Request $request)
     {
         $filieres = Filiere::all();
         $groups   = Trainee::distinct()->pluck('group');
 
-        $documents = Document::with('trainee.filiere', 'movements')
+        $documents = Document::with('trainee.filiere')
             ->where('type', 'Bac')
             ->where('status', 'Final_Out')
             ->when($request->filiere_id, fn($q) =>
@@ -182,6 +244,7 @@ class DocumentController extends Controller
         return view('documents.final-out', compact('documents', 'filieres', 'groups'));
     }
 
+    // 🎓 Diplômes en stock
     public function prets()
     {
         $documents = Document::with('trainee.filiere')

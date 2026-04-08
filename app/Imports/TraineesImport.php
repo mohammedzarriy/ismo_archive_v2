@@ -12,175 +12,99 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 class TraineesImport implements SkipsEmptyRows, ToModel, WithHeadingRow
 {
-    /**
-     * @param  array<string, mixed>  $row
-     */
     public function model(array $row)
     {
-        $extId = $this->pick($row, ['id_inscriptionsessionprogramme', 'id_inscription_session_programme']);
-        $cin = $this->pick($row, ['cin', 'c_i_n']);
-        $matricule = $this->pick($row, ['matriculeetudiant', 'matricule_etudiant']);
+        $extId = $this->pick($row, ['id_inscriptionsessionprogramme']);
+        $cin = $this->pick($row, ['cin']);
+        $matricule = $this->pick($row, ['matriculeetudiant']);
 
-        if ($extId === null && $cin === null && $matricule === null) {
-            return null;
-        }
+        if (!$extId && !$cin && !$matricule) return null;
 
-        $nom = $this->pick($row, ['nom', 'last_name', 'lastname']);
-        $prenom = $this->pick($row, ['prenom', 'first_name', 'firstname']);
+        $nom = $this->pick($row, ['nom']);
+        $prenom = $this->pick($row, ['prenom']);
 
-        if ($nom === null && $prenom === null) {
-            return null;
-        }
+        if (!$nom && !$prenom) return null;
 
-        $filiereCode = $this->pick($row, ['codediplome', 'code_diplome', 'filiere', 'code_filiere']);
+        $filiereCode = $this->pick($row, ['codediplome', 'filiere']);
         $filiere = $filiereCode
             ? Filiere::where('code_filiere', $filiereCode)->first()
             : null;
-        $filiereId = $filiere?->id ?? Filiere::query()->orderBy('id')->value('id');
-        if ($filiereId === null) {
-            return null;
-        }
 
-        if ($cin === null) {
-            $cin = $matricule !== null ? 'M-'.preg_replace('/\s+/', '', (string) $matricule) : 'EXT-'.preg_replace('/\W/', '', (string) $extId);
-        }
+        $filiereId = $filiere?->id ?? 1; // default filiere
 
-        $group = $this->pick($row, ['groupe', 'group']) ?? '—';
-        $gradYear = $this->resolveGraduationYear($row);
+        if (!$cin) $cin = $matricule ? 'M-'.$matricule : 'EXT-'.$extId;
 
-        $attributes = [
+        $data = [
             'filiere_id' => $filiereId,
             'cin' => $cin,
             'cef' => $this->pick($row, ['cef']),
-            'first_name' => $prenom ?? '—',
-            'last_name' => $nom ?? '—',
-            'group' => (string) $group,
-            'graduation_year' => $gradYear,
-            'date_naissance' => $this->parseDate($this->pick($row, ['datenaissance', 'date_naissance', 'date_de_naissance'])),
-            'phone' => $this->pick($row, ['ntelelephone', 'n_telephone', 'telephone', 'phone']),
+            'first_name' => $prenom,
+            'last_name' => $nom,
+            'group' => $this->pick($row, ['groupe']) ?? 'G1',
+            'graduation_year' => $this->year($row),
 
-            'id_inscription_session_programme' => $extId !== null ? (string) $extId : null,
-            'matricule_etudiant' => $matricule !== null ? (string) $matricule : null,
-            'sexe' => $this->pick($row, ['sexe', 'gender']),
-            'etudiant_actif' => $this->parseBool($this->pick($row, ['etudiantactif', 'etudiant_actif'])),
+            'date_naissance' => $this->date($this->pick($row, ['datenaissance'])),
+            'phone' => $this->pick($row, ['ntelelephone']),
+            'tel_tuteur' => $this->pick($row, ['ntel_du_tuteur']),
+
+            'id_inscription_session_programme' => $extId,
+            'matricule_etudiant' => $matricule,
+            'sexe' => $this->pick($row, ['sexe']),
+            'etudiant_actif' => $this->bool($this->pick($row, ['etudiantactif'])),
+
             'diplome' => $this->pick($row, ['diplome']),
-            'principale' => $this->parseBool($this->pick($row, ['principale'])),
-            'libelle_long' => $this->pick($row, ['libellelong', 'libelle_long']),
-            'code_diplome' => $this->pick($row, ['codediplome', 'code_diplome']),
+            'principale' => $this->bool($this->pick($row, ['principale'])),
+            'libelle_long' => $this->pick($row, ['libellelong']),
+            'code_diplome' => $this->pick($row, ['codediplome']),
             'inscription_code' => $this->pick($row, ['code']),
-            'etudiant_payant' => $this->parseBool($this->pick($row, ['etudiantpayant', 'etudiant_payant'])),
-            'code_diplome_1' => $this->pick($row, ['codediplome1', 'code_diplome_1']),
-            'prenom_2' => $this->pick($row, ['prenom2', 'prenom_2']),
+            'etudiant_payant' => $this->bool($this->pick($row, ['etudiantpayant'])),
+
+            'code_diplome_1' => $this->pick($row, ['codediplome1']),
+            'prenom_2' => $this->pick($row, ['prenom2']),
             'site' => $this->pick($row, ['site']),
-            'regime_inscription' => $this->pick($row, ['regimeinscription', 'regime_inscription']),
-            'date_inscription' => $this->parseDate($this->pick($row, ['dateinscription', 'date_inscription'])),
-            'date_dossier_complet' => $this->parseDate($this->pick($row, ['datedossiercomplet', 'date_dossier_complet'])),
-            'lieu_naissance' => $this->pick($row, ['lieunaissance', 'lieu_naissance']),
-            'motif_admission' => $this->pick($row, ['motifadmission', 'motif_admission']),
-            'tel_tuteur' => $this->pick($row, ['ntel_du_tuteur', 'tel_tuteur', 'n_tel_du_tuteur']),
-            'adresse' => $this->pick($row, ['adresse', 'address']),
+            'regime_inscription' => $this->pick($row, ['regimeinscription']),
+            'date_inscription' => $this->date($this->pick($row, ['dateinscription'])),
+            'date_dossier_complet' => $this->date($this->pick($row, ['datedossiercomplet'])),
+
+            'lieu_naissance' => $this->pick($row, ['lieunaissance']),
+            'motif_admission' => $this->pick($row, ['motifadmission']),
+            'adresse' => $this->pick($row, ['adresse']),
             'nationalite' => $this->pick($row, ['nationalite']),
-            'annee_etude' => $this->pick($row, ['anneeetude', 'annee_etude', 'annee']),
-            'nom_arabe' => $this->pick($row, ['nom_arabe', 'nomarabe']),
-            'prenom_arabe' => $this->pick($row, ['prenom_arabe', 'prenom_arabe']),
-            'niveau_scolaire' => $this->pick($row, ['niveauscolaire', 'niveau_scolaire']),
+            'annee_etude' => $this->pick($row, ['anneeetude']),
+
+            'nom_arabe' => $this->pick($row, ['nom_arabe']),
+            'prenom_arabe' => $this->pick($row, ['prenom_arabe']),
+            'niveau_scolaire' => $this->pick($row, ['niveauscolaire']),
         ];
 
-        $trainee = null;
-        if ($extId !== null) {
-            $trainee = Trainee::query()
-                ->where('id_inscription_session_programme', (string) $extId)
-                ->first();
-        }
-        if ($trainee === null && $cin !== null) {
-            $trainee = Trainee::query()->where('cin', (string) $cin)->first();
-        }
-        if ($trainee === null && $matricule !== null) {
-            $trainee = Trainee::query()->where('matricule_etudiant', (string) $matricule)->first();
-        }
-
-        if ($trainee !== null) {
-            $trainee->fill($attributes);
-            $trainee->save();
-        } else {
-            Trainee::query()->create($attributes);
-        }
+        Trainee::updateOrCreate(['cin' => $cin], $data);
 
         return null;
     }
 
-    /**
-     * @param  array<string, mixed>  $row
-     */
-    private function pick(array $row, array $keys): ?string
+    private function pick($row, $keys)
     {
-        foreach ($keys as $key) {
-            if (! array_key_exists($key, $row)) {
-                continue;
-            }
-            $v = $row[$key];
-            if ($v === null || $v === '') {
-                continue;
-            }
-            if (is_numeric($v) && ! is_string($v)) {
-                return (string) $v;
-            }
-
-            return is_string($v) ? trim($v) : trim((string) $v);
+        foreach ($keys as $k) {
+            if (!empty($row[$k])) return trim($row[$k]);
         }
-
         return null;
     }
 
-    /**
-     * @param  array<string, mixed>  $row
-     */
-    private function resolveGraduationYear(array $row): int
+    private function date($v)
     {
-        $y = $this->pick($row, ['annee', 'anneeetude', 'annee_etude', 'promotion', 'graduation_year']);
-        if ($y === null) {
-            return (int) date('Y');
-        }
-        if (preg_match('/(\d{4})/', $y, $m)) {
-            return (int) $m[1];
-        }
-
-        return (int) date('Y');
+        if (!$v) return null;
+        if (is_numeric($v)) return ExcelDate::excelToDateTimeObject($v)->format('Y-m-d');
+        return Carbon::parse($v)->format('Y-m-d');
     }
 
-    private function parseDate(mixed $value): ?string
+    private function bool($v)
     {
-        if ($value === null || $value === '') {
-            return null;
-        }
-        if (is_numeric($value)) {
-            try {
-                return ExcelDate::excelToDateTimeObject((float) $value)->format('Y-m-d');
-            } catch (\Throwable) {
-                return null;
-            }
-        }
-        try {
-            return Carbon::parse((string) $value)->format('Y-m-d');
-        } catch (\Throwable) {
-            return null;
-        }
+        return in_array(strtolower($v), ['oui','yes','1']) ? 1 : 0;
     }
 
-    private function parseBool(mixed $value): ?bool
+    private function year($row)
     {
-        if ($value === null || $value === '') {
-            return null;
-        }
-        if (is_bool($value)) {
-            return $value;
-        }
-        $v = strtolower(trim((string) $value));
-
-        return match ($v) {
-            '1', 'true', 'oui', 'yes', 'o', 'y' => true,
-            '0', 'false', 'non', 'no', 'n' => false,
-            default => null,
-        };
+        $y = $this->pick($row, ['annee']);
+        return $y ? (int)$y : date('Y');
     }
 }

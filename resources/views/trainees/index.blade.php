@@ -25,7 +25,6 @@
 </div>
 @endif
 
-{{-- Filters --}}
 <div class="card mb-3">
     <div class="card-header bg-light">
         <h3 class="card-title"><i class="fas fa-filter"></i> Filtres</h3>
@@ -169,6 +168,15 @@
                                 <i class="fas fa-trash"></i>
                             </button>
                         </form>
+
+                        {{-- ✅ NOUVEAU — Télécharger rapport PDF --}}
+                        <a href="{{ route('trainees.report', $t) }}"
+                           target="_blank"
+                           title="Télécharger rapport PDF"
+                           class="btn btn-sm btn-dark">
+                            <i class="fas fa-file-pdf"></i>
+                        </a>
+
                     </td>
                 </tr>
                 @endforeach
@@ -184,7 +192,6 @@
 <script>
 $('.select2').select2();
 
-// ملي تختار filiere — جيب groupes و years ديالها
 $('#filiere-select').on('change', function() {
     var filiereId = $(this).val();
     var groupSelect = $('#group-select');
@@ -199,7 +206,6 @@ $('#filiere-select').on('change', function() {
         return;
     }
 
-    // جيب groupes
     $.get('/api/filiere/' + filiereId + '/groups', function(data) {
         var options = '<option value="">— Tous les groupes —</option>';
         data.groups.forEach(function(g) {
@@ -208,7 +214,6 @@ $('#filiere-select').on('change', function() {
         groupSelect.html(options);
     });
 
-    // جيب years
     $.get('/api/filiere/' + filiereId + '/years', function(data) {
         var options = '<option value="">— Toutes les années —</option>';
         data.years.forEach(function(y) {

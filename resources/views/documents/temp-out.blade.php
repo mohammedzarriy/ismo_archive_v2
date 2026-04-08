@@ -1,3 +1,4 @@
+cat > resources/views/documents/bac/temp-out.blade.php << 'EOF'
 @extends('adminlte::page')
 @section('title', 'Retraits temporaires — Bac')
 
@@ -146,6 +147,7 @@
                     <th>Date retrait</th>
                     <th>Deadline (48h)</th>
                     <th>Statut / Retard</th>
+                    <th>Signature</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -237,6 +239,23 @@
                         @endif
                     </td>
 
+                    {{-- ✅ COLONNE SIGNATURE / SCANNER --}}
+                    <td class="text-center">
+                        <button type="button"
+                                class="btn btn-warning btn-sm btn-scan-temp"
+                                data-cin="{{ $doc->trainee->cin }}"
+                                data-id="{{ $doc->id }}"
+                                title="Scanner CIN / QR Code">
+                            <i class="fas fa-qrcode"></i> Scanner
+                        </button>
+                        <div id="scan-result-{{ $doc->id }}" class="mt-1" style="display:none">
+                            <span class="badge scan-badge-{{ $doc->id }} badge-success">
+                                <i class="fas fa-check-circle"></i>
+                                <span class="scan-text-{{ $doc->id }}"></span>
+                            </span>
+                        </div>
+                    </td>
+
                     <td>
                         <a href="{{ route('documents.show', $doc) }}"
                            class="btn btn-sm btn-info">
@@ -257,7 +276,7 @@
 
                 @empty
                 <tr>
-                    <td colspan="10" class="text-center py-4 text-success">
+                    <td colspan="11" class="text-center py-4 text-success">
                         <strong>Aucun retrait temporaire en cours</strong>
                     </td>
                 </tr>
@@ -268,10 +287,91 @@
         {{ $documents->links() }}
     </div>
 </div>
+
+{{-- ✅ MODAL SCANNER CIN / QR --}}
+<div class="modal fade" id="modal-scanner-temp" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-md" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">
+                    <i class="fas fa-qrcode"></i>
+                    Scanner CIN / QR Code
+                    <small class="ml-2 text-dark font-weight-normal" id="modal-scan-cin-label"></small>
+                </h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body p-2">
+
+                {{-- Vidéo --}}
+                <div style="position:relative; background:#000; border-radius:8px; overflow:hidden; min-height:200px">
+                    <video id="modal-scanner-video"
+                           style="width:100%; display:block"
+                           autoplay playsinline></video>
+
+                    {{-- Ligne scan animée --}}
+                    <div style="
+                        position:absolute; top:0; left:0; right:0;
+                        height:3px;
+                        background: linear-gradient(to right, transparent, #f39c12, transparent);
+                        animation: scanLine 2s linear infinite;
+                    "></div>
+
+                    {{-- Cadre de visée --}}
+                    <div style="
+                        position:absolute; top:50%; left:50%;
+                        transform:translate(-50%,-55%);
+                        width:65%; height:55%;
+                        border:2px solid #f39c12;
+                        border-radius:8px;
+                        pointer-events:none;
+                    "></div>
+
+                    {{-- Coins décoratifs --}}
+                    <div style="position:absolute;top:22%;left:18%;width:18px;height:18px;border-top:3px solid #f39c12;border-left:3px solid #f39c12;border-radius:2px 0 0 0"></div>
+                    <div style="position:absolute;top:22%;right:18%;width:18px;height:18px;border-top:3px solid #f39c12;border-right:3px solid #f39c12;border-radius:0 2px 0 0"></div>
+                    <div style="position:absolute;bottom:22%;left:18%;width:18px;height:18px;border-bottom:3px solid #f39c12;border-left:3px solid #f39c12;border-radius:0 0 0 2px"></div>
+                    <div style="position:absolute;bottom:22%;right:18%;width:18px;height:18px;border-bottom:3px solid #f39c12;border-right:3px solid #f39c12;border-radius:0 0 2px 0"></div>
+                </div>
+
+                <p class="text-center text-muted mt-2 mb-0">
+                    <small><i class="fas fa-info-circle"></i>
+                        Pointez la caméra vers le code CIN ou QR du stagiaire
+                    </small>
+                </p>
+
+                {{-- Résultat --}}
+                <div id="modal-scan-result" class="mt-2" style="display:none">
+                    <div id="modal-scan-alert" class="alert mb-0 py-2">
+                        <i class="fas fa-check-circle"></i>
+                        <strong>Code détecté :</strong>
+                        <span id="modal-scan-text" class="ml-1 font-weight-bold"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                    <i class="fas fa-times"></i> Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes scanLine {
+    0%   { top: 0%; }
+    100% { top: 100%; }
+}
+</style>
+
 @stop
 
 @section('js')
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script>
+    // ========== DATATABLE & SELECT2 ==========
     $('#tempout-table').DataTable({
         language: {
             url: "//cdn.datatables.net/plug-ins/1.10.19/i18n/French.json"
@@ -281,5 +381,103 @@
     });
 
     $('.select2').select2();
+
+    // ========== SCANNER QR / CIN ==========
+    (function () {
+        var videoEl      = document.getElementById('modal-scanner-video');
+        var canvas       = document.createElement('canvas');
+        var ctx          = canvas.getContext('2d');
+        var videoStream  = null;
+        var scanInterval = null;
+        var currentCIN   = '';
+        var currentDocId = '';
+
+        // Clic sur un bouton Scanner dans le tableau
+        $(document).on('click', '.btn-scan-temp', function () {
+            currentCIN   = $(this).data('cin');
+            currentDocId = $(this).data('id');
+
+            $('#modal-scan-cin-label').text(
+                currentCIN ? '— CIN attendu : ' + currentCIN : ''
+            );
+            $('#modal-scan-result').hide();
+            $('#modal-scan-text').text('');
+
+            $('#modal-scanner-temp').modal('show');
+        });
+
+        // Démarrer la caméra à l'ouverture du modal
+        $('#modal-scanner-temp').on('shown.bs.modal', function () {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then(function (stream) {
+                    videoStream = stream;
+                    videoEl.srcObject = stream;
+                    videoEl.play();
+
+                    scanInterval = setInterval(function () {
+                        if (videoEl.readyState !== videoEl.HAVE_ENOUGH_DATA) return;
+
+                        canvas.width  = videoEl.videoWidth;
+                        canvas.height = videoEl.videoHeight;
+                        ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+                        var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        var code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                        if (code) {
+                            stopCamera();
+                            showScanResult(code.data);
+                        }
+                    }, 500);
+                })
+                .catch(function (err) {
+                    alert('Impossible d\'accéder à la caméra : ' + err.message);
+                    $('#modal-scanner-temp').modal('hide');
+                });
+        });
+
+        // Arrêter la caméra à la fermeture du modal
+        $('#modal-scanner-temp').on('hidden.bs.modal', function () {
+            stopCamera();
+        });
+
+        function stopCamera() {
+            clearInterval(scanInterval);
+            scanInterval = null;
+            if (videoStream) {
+                videoStream.getTracks().forEach(function (t) { t.stop(); });
+                videoStream = null;
+            }
+        }
+
+        function showScanResult(data) {
+            var alertEl = $('#modal-scan-alert');
+            var match   = (data === currentCIN);
+
+            alertEl.removeClass('alert-success alert-warning alert-danger');
+
+            if (!currentCIN) {
+                alertEl.addClass('alert-success');
+                $('#modal-scan-text').text(data + ' ✅');
+            } else if (match) {
+                alertEl.addClass('alert-success');
+                $('#modal-scan-text').text(data + ' ✅ CIN confirmé !');
+            } else {
+                alertEl.addClass('alert-warning');
+                $('#modal-scan-text').text(data + ' ⚠️ CIN différent du stagiaire');
+            }
+
+            $('#modal-scan-result').show();
+
+            // Mettre à jour le badge dans la ligne du tableau
+            var badge = $('.scan-badge-' + currentDocId);
+            var text  = $('.scan-text-'  + currentDocId);
+            badge.removeClass('badge-success badge-warning')
+                 .addClass(match ? 'badge-success' : 'badge-warning');
+            text.text(match ? '✅ ' + data : '⚠️ ' + data);
+            $('#scan-result-' + currentDocId).show();
+        }
+    })();
 </script>
 @stop
+EOF

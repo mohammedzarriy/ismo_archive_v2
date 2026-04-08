@@ -11,6 +11,7 @@ use App\Http\Controllers\ValidationController;
 use App\Http\Controllers\SecteurController;
 use App\Http\Controllers\FiliereController;
 use App\Http\Controllers\SearchController;
+use App\Http\Controllers\CalendrierController;
 
 /*
 |--------------------------------------------------------------------------
@@ -56,6 +57,9 @@ Route::middleware(['auth'])->group(function () {
     // Movements
     Route::get('movements',       [MovementController::class, 'index'])->name('movements.index');
     Route::get('movements/today', [MovementController::class, 'today'])->name('movements.today');
+
+    // ✅ Calendrier (المهم)
+    Route::get('calendrier', [CalendrierController::class, 'index'])->name('calendrier');
 
     // Validations
     Route::get('validations', [ValidationController::class, 'index'])->name('validations.index');
@@ -109,3 +113,7 @@ Route::middleware(['auth', 'role:admin|agent'])->group(function () {
          ->name('trainees.report');
 
 });
+
+
+// Auth routes (Laravel Breeze / Jetstream)
+require __DIR__.'/auth.php';

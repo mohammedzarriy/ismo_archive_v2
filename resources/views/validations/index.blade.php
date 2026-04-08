@@ -4,15 +4,20 @@
 @section('content_header')
     <div class="d-flex justify-content-between align-items-center">
         <h1><i class="fas fa-check-double"></i> Registre des validations</h1>
-        <span class="badge badge-success" style="font-size:14px">
-            {{ $validations->total() }} stagiaires validés
-        </span>
+        <div>
+            <span class="badge badge-success mr-2" style="font-size:13px">
+                <i class="fas fa-check-circle"></i> {{ $totalValides }} validés
+            </span>
+            <span class="badge badge-info" style="font-size:13px">
+                <i class="fas fa-users"></i> {{ $trainees->total() }} stagiaires
+            </span>
+        </div>
     </div>
 @stop
 
 @section('content')
 
-{{-- Filters --}}
+{{-- Filtres --}}
 <div class="card mb-3">
     <div class="card-header bg-light">
         <h3 class="card-title"><i class="fas fa-filter"></i> Filtres</h3>
@@ -20,6 +25,12 @@
     <div class="card-body">
         <form method="GET" action="{{ route('validations.index') }}">
             <div class="row">
+                <div class="col-md-2">
+                    <label>Recherche</label>
+                    <input type="text" name="search" class="form-control"
+                           placeholder="CIN, Nom..."
+                           value="{{ request('search') }}">
+                </div>
                 <div class="col-md-3">
                     <label>Filière</label>
                     <select name="filiere_id" class="form-control select2">
@@ -32,7 +43,7 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label>Groupe</label>
                     <select name="group" class="form-control">
                         <option value="">— Tous —</option>
@@ -44,7 +55,7 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label>Année</label>
                     <select name="graduation_year" class="form-control">
                         <option value="">— Toutes —</option>
@@ -70,135 +81,176 @@
 </div>
 
 <div class="card">
-    <div class="card-body table-responsive">
-        <table id="val-table" class="table table-bordered table-hover">
-            <thead class="bg-success">
+    <div class="card-body table-responsive p-0">
+        <table class="table table-bordered table-hover mb-0">
+            <thead class="bg-success text-white">
                 <tr>
                     <th>#</th>
                     <th>Stagiaire</th>
                     <th>CIN / CEF</th>
                     <th>Filière</th>
-                    <th>Groupe</th>
+                    <th>Grp</th>
                     <th>Année</th>
-                    <th>Bac</th>
-                    <th>Diplôme</th>
-                    <th>Attestation</th>
-                    <th>Bulletin</th>
-                    <th>Date validation</th>
-                    <th>Validé par</th>
-                    <th>Signature</th>
-                    <th>Actions</th>
+                    <th class="text-center">Bac</th>
+                    <th class="text-center">Diplôme</th>
+                    <th class="text-center">Attestation</th>
+                    <th class="text-center">Bulletin</th>
+                    <th class="text-center">Validation</th>
+                    <th class="text-center">Validé par</th>
+                    <th class="text-center">Signature</th>
+                    <th class="text-center">Actions</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach($validations as $val)
+                @forelse($trainees as $trainee)
                 @php
-                    $trainee = $val->trainee;
-                    $docs    = $trainee->documents->groupBy('type');
+                    $docs = $trainee->documents->groupBy('type');
+                    $val  = $trainee->validation;
+
+                    $statusConfig = [
+                        'Remis'     => ['class' => 'badge-success',   'icon' => 'fa-check',        'label' => 'Remis'],
+                        'Final_Out' => ['class' => 'badge-danger',    'icon' => 'fa-sign-out-alt', 'label' => 'Définitif'],
+                        'Temp_Out'  => ['class' => 'badge-warning',   'icon' => 'fa-clock',        'label' => 'Temp.'],
+                        'Stock'     => ['class' => 'badge-secondary', 'icon' => 'fa-archive',      'label' => 'Stock'],
+                        'Ecoule'    => ['class' => 'badge-dark',      'icon' => 'fa-hourglass-end','label' => 'Écoulé'],
+                    ];
                 @endphp
                 <tr>
                     <td>{{ $loop->iteration }}</td>
                     <td>
-                        <a href="{{ route('trainees.show', $trainee) }}">
+                        <a href="{{ route('trainees.show', $trainee) }}" class="font-weight-bold">
                             {{ $trainee->last_name }} {{ $trainee->first_name }}
                         </a>
                     </td>
                     <td>
-                        {{ $trainee->cin }}
+                        <span class="badge badge-light border">{{ $trainee->cin }}</span>
                         @if($trainee->cef)
                             <br><small class="text-muted">{{ $trainee->cef }}</small>
                         @endif
                     </td>
-                    <td>{{ $trainee->filiere->nom_filiere }}</td>
+                    <td>
+                        <small>{{ $trainee->filiere->nom_filiere ?? '—' }}</small>
+                    </td>
                     <td>{{ $trainee->group }}</td>
                     <td>{{ $trainee->graduation_year }}</td>
 
-                    {{-- حالة كل وثيقة --}}
+                    {{-- Documents --}}
                     @foreach(['Bac','Diplome','Attestation','Bulletin'] as $type)
                     @php
                         $doc = isset($docs[$type]) ? $docs[$type]->first() : null;
+                        $cfg = $doc ? ($statusConfig[$doc->status] ?? null) : null;
                     @endphp
                     <td class="text-center">
                         @if(!$doc)
-                            <span class="badge badge-light border">
-                                <i class="fas fa-times text-danger"></i>
-                            </span>
-                        @elseif($doc->status == 'Final_Out')
-                            <span class="badge badge-danger"
-                                  title="Retrait définitif">
-                                <i class="fas fa-sign-out-alt"></i> Définitif
-                            </span>
-                        @elseif($doc->status == 'Remis')
-                            <span class="badge badge-success"
-                                  title="Remis">
-                                <i class="fas fa-check"></i> Remis
-                            </span>
-                        @elseif($doc->status == 'Temp_Out')
-                            <span class="badge badge-warning"
-                                  title="Retrait temporaire">
-                                <i class="fas fa-clock"></i> Temp.
+                            <span class="badge badge-light border text-danger"
+                                  title="Non enregistré">
+                                <i class="fas fa-times"></i>
                             </span>
                         @else
-                            <span class="badge badge-secondary"
-                                  title="En stock">
-                                <i class="fas fa-archive"></i> Stock
+                            <span class="badge {{ $cfg['class'] }}"
+                                  title="{{ $doc->status }}">
+                                <i class="fas {{ $cfg['icon'] }}"></i>
+                                {{ $cfg['label'] }}
                             </span>
+                            {{-- Historique mouvements --}}
+                            @if($doc->movements->count() > 0)
+                                <br>
+                                <small class="text-muted"
+                                       title="Dernière action : {{ $doc->movements->last()?->action_type }} — {{ $doc->movements->last()?->date_action }}">
+                                    <i class="fas fa-history"></i>
+                                    {{ $doc->movements->count() }} mvt
+                                </small>
+                            @endif
                         @endif
                     </td>
                     @endforeach
 
-                    <td>
-                        <span class="badge badge-success">
-                            {{ $val->date_validation->format('d/m/Y') }}
-                        </span>
-                    </td>
-                    <td>{{ $val->user->name }}</td>
+                    {{-- Validation --}}
                     <td class="text-center">
-                        @if($val->signature_scan)
+                        @if($val)
+                            <span class="badge badge-success">
+                                <i class="fas fa-check-double"></i>
+                                {{ \Carbon\Carbon::parse($val->date_validation)->format('d/m/Y') }}
+                            </span>
+                        @else
+                            <span class="badge badge-light border text-muted">
+                                <i class="fas fa-minus"></i> Non validé
+                            </span>
+                        @endif
+                    </td>
+
+                    {{-- Validé par --}}
+                    <td class="text-center">
+                        @if($val)
+                            <small>{{ $val->user->name ?? '—' }}</small>
+                        @else
+                            <span class="text-muted">—</span>
+                        @endif
+                    </td>
+
+                    {{-- Signature --}}
+                    <td class="text-center">
+                        @if($val && $val->signature_scan)
                             <a href="{{ asset('storage/' . $val->signature_scan) }}"
                                target="_blank"
-                               class="btn btn-sm btn-info"
-                               title="Voir le scan">
+                               class="btn btn-xs btn-info"
+                               title="Voir la signature">
                                 <i class="fas fa-file-image"></i>
                             </a>
                         @else
                             <span class="text-muted">—</span>
                         @endif
                     </td>
-                    <td>
-                        <a href="{{ route('validations.show', $trainee) }}"
-                           class="btn btn-sm btn-primary"
-                           title="Voir détails">
+
+                    {{-- Actions --}}
+                    <td class="text-center">
+                        <a href="{{ route('trainees.show', $trainee) }}"
+                           class="btn btn-xs btn-info" title="Voir le stagiaire">
                             <i class="fas fa-eye"></i>
                         </a>
-                        <form action="{{ route('validations.destroy', $val) }}"
-                              method="POST" style="display:inline">
-                            @csrf @method('DELETE')
-                            <button type="submit"
-                                    class="btn btn-sm btn-danger"
-                                    onclick="return confirm('Supprimer cette validation?')"
-                                    title="Supprimer">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </form>
+                        <a href="{{ route('trainees.report', $trainee) }}"
+                           target="_blank"
+                           class="btn btn-xs btn-dark" title="Rapport PDF">
+                            <i class="fas fa-file-pdf"></i>
+                        </a>
+                        @if(!$val)
+                            <a href="{{ route('validations.create', $trainee) }}"
+                               class="btn btn-xs btn-success" title="Valider">
+                                <i class="fas fa-check-double"></i>
+                            </a>
+                        @else
+                            <form action="{{ route('validations.destroy', $val) }}"
+                                  method="POST" style="display:inline">
+                                @csrf @method('DELETE')
+                                <button type="submit"
+                                        class="btn btn-xs btn-danger"
+                                        onclick="return confirm('Supprimer cette validation?')"
+                                        title="Supprimer validation">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                        @endif
                     </td>
                 </tr>
-                @endforeach
+                @empty
+                <tr>
+                    <td colspan="14" class="text-center text-muted py-4">
+                        <i class="fas fa-inbox fa-2x mb-2"></i><br>
+                        Aucun stagiaire trouvé
+                    </td>
+                </tr>
+                @endforelse
             </tbody>
         </table>
-        {{ $validations->links() }}
+    </div>
+    <div class="card-footer">
+        {{ $trainees->links() }}
     </div>
 </div>
 @stop
 
-@section('js')
+@section("js")
 <script>
-    $('#val-table').DataTable({
-        "language": {"url": "//cdn.datatables.net/plug-ins/1.10.19/i18n/French.json"},
-        "paging": false,
-        "order": [[10, "desc"]],
-        "scrollX": true
-    });
-    $('.select2').select2();
+    $(".select2").select2();
 </script>
 @stop

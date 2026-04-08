@@ -16,41 +16,44 @@ class ValidationController extends Controller
         $groups   = Trainee::distinct()->pluck('group');
         $years    = Trainee::distinct()->pluck('graduation_year')->sortDesc();
 
-        $validations = Validation::with('trainee.filiere', 'trainee.documents', 'user')
-
-            ->when($request->filiere_id, function ($q) use ($request) {
-                $q->whereHas('trainee', function ($q) use ($request) {
-                    $q->where('filiere_id', $request->filiere_id);
-                });
-            })
-
-            ->when($request->group, function ($q) use ($request) {
-                $q->whereHas('trainee', function ($q) use ($request) {
-                    $q->where('group', $request->group);
-                });
-            })
-
-            ->when($request->graduation_year, function ($q) use ($request) {
-                $q->whereHas('trainee', function ($q) use ($request) {
-                    $q->where('graduation_year', $request->graduation_year);
-                });
-            })
-
-            ->latest('date_validation')
-            ->paginate(15)
+        // Tous les stagiaires avec leurs documents et mouvements
+        $trainees = Trainee::with([
+                'filiere.secteur',
+                'documents.movements.user',
+                'validation.user'
+            ])
+            ->when($request->filiere_id, fn($q) =>
+                $q->where('filiere_id', $request->filiere_id)
+            )
+            ->when($request->group, fn($q) =>
+                $q->where('group', $request->group)
+            )
+            ->when($request->graduation_year, fn($q) =>
+                $q->where('graduation_year', $request->graduation_year)
+            )
+            ->when($request->search, fn($q) =>
+                $q->where('cin', 'like', '%'.$request->search.'%')
+                  ->orWhere('last_name', 'like', '%'.$request->search.'%')
+                  ->orWhere('first_name', 'like', '%'.$request->search.'%')
+            )
+            ->orderBy('last_name')
+            ->paginate(20)
             ->withQueryString();
 
+        $totalValides = Trainee::whereHas('validation')->count();
+
         return view('validations.index', compact(
-            'validations',
+            'trainees',
             'filieres',
             'groups',
-            'years'
+            'years',
+            'totalValides'
         ));
     }
 
     public function create(Trainee $trainee)
     {
-        $docs = $trainee->documents;
+        $docs  = $trainee->documents;
         $types = ['Bac', 'Diplome', 'Attestation', 'Bulletin'];
         $missing = [];
 
@@ -72,8 +75,7 @@ class ValidationController extends Controller
             'observations'    => 'nullable|string',
         ]);
 
-        $path = $request->file('signature_scan')
-                        ->store('signatures', 'public');
+        $path = $request->file('signature_scan')->store('signatures', 'public');
 
         Validation::create([
             'trainee_id'      => $trainee->id,
@@ -83,17 +85,23 @@ class ValidationController extends Controller
             'observations'    => $request->observations,
         ]);
 
-        return redirect()->route('trainees.show', $trainee)
-            ->with('success', 'Signature et validation enregistrées avec succès!');
+        return redirect()->route('validations.index')
+            ->with('success', 'Validation enregistrée avec succès ✅');
     }
 
     public function show(Trainee $trainee)
     {
+        $trainee->load([
+            'filiere.secteur',
+            'documents.movements.user',
+            'validation.user'
+        ]);
+
         $validation = $trainee->validation;
 
         if (!$validation) {
             return redirect()->route('trainees.show', $trainee)
-                ->with('error', 'Aucune validation trouvée!');
+                ->with('error', 'Aucune validation trouvée !');
         }
 
         return view('validations.show', compact('trainee', 'validation'));
@@ -104,7 +112,7 @@ class ValidationController extends Controller
         $trainee = $validation->trainee;
         $validation->delete();
 
-        return redirect()->route('trainees.show', $trainee)
-            ->with('success', 'Validation supprimée!');
+        return redirect()->route('validations.index')
+            ->with('success', 'Validation supprimée !');
     }
 }

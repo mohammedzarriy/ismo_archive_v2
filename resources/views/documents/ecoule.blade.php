@@ -1,11 +1,11 @@
 @extends('adminlte::page')
-@section('title', 'Retraits temporaires — Bac')
+@section('title', 'Documents écoulés — Bac')
 
 @section('content_header')
     <div class="d-flex justify-content-between align-items-center">
-        <h1><i class="fas fa-clock"></i> Bac — Retraits temporaires</h1>
-        <span class="badge badge-warning" style="font-size:14px">
-            {{ $documents->total() }} en cours
+        <h1><i class="fas fa-exclamation-triangle text-danger"></i> Bac — Documents Écoulés (>48h)</h1>
+        <span class="badge badge-danger" style="font-size:14px">
+            {{ $documents->total() }} écoulés
         </span>
     </div>
 @stop
@@ -18,7 +18,7 @@
         <h3 class="card-title"><i class="fas fa-filter"></i> Filtres</h3>
     </div>
     <div class="card-body">
-        <form method="GET" action="{{ route('documents.bac.temp-out') }}">
+        <form method="GET" action="{{ route('documents.bac.ecoule') }}">
             <div class="row">
                 <div class="col-md-4">
                     <label>Filière</label>
@@ -48,7 +48,7 @@
                     <button type="submit" class="btn btn-primary mr-2">
                         <i class="fas fa-filter"></i> Filtrer
                     </button>
-                    <a href="{{ route('documents.bac.temp-out') }}" class="btn btn-secondary">
+                    <a href="{{ route('documents.bac.ecoule') }}" class="btn btn-secondary">
                         <i class="fas fa-times"></i> Reset
                     </a>
                 </div>
@@ -57,49 +57,7 @@
     </div>
 </div>
 
-{{-- Stats rapides --}}
-@php
-    $alerte = 0;
-    $ok     = 0;
-    foreach($documents as $doc) {
-        $ls = $doc->movements->where('action_type','Sortie')->sortByDesc('date_action')->first();
-        $dl = $ls?->deadline ? \Carbon\Carbon::parse($ls->deadline) : null;
-        if ($dl && now()->diffInHours($dl, false) <= 8 && now()->diffInHours($dl, false) >= 0) {
-            $alerte++;
-        } else {
-            $ok++;
-        }
-    }
-@endphp
-<div class="row mb-3">
-    <div class="col-md-4">
-        <div class="small-box bg-danger">
-            <div class="inner">
-                <h3>{{ $alerte }}</h3>
-                <p>Alerte Rouge (40h-48h)</p>
-            </div>
-            <div class="icon"><i class="fas fa-fire"></i></div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="small-box bg-warning">
-            <div class="inner">
-                <h3>{{ $ok }}</h3>
-                <p>Dans les délais</p>
-            </div>
-            <div class="icon"><i class="fas fa-clock"></i></div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="small-box bg-info">
-            <div class="inner">
-                <h3>{{ $documents->total() }}</h3>
-                <p>Total en cours</p>
-            </div>
-            <div class="icon"><i class="fas fa-list"></i></div>
-        </div>
-    </div>
-</div>
+{{-- No stats rapides needed for Ecoule, all are expired --}}
 
 {{-- Table --}}
 <div class="card">
@@ -129,11 +87,14 @@
                     $deadline   = $lastSortie?->deadline
                         ? \Carbon\Carbon::parse($lastSortie->deadline)
                         : null;
-                    
-                    $hoursLeft = $deadline ? now()->diffInHours($deadline, false) : null;
-                    $isAlerte  = $hoursLeft !== null && $hoursLeft <= 8 && $hoursLeft >= 0;
+                    $diff    = $deadline ? $deadline->diff(now()) : null;
+                    $overdue = $diff
+                        ? ($diff->days > 0
+                            ? $diff->days . 'j ' . $diff->h . 'h ' . $diff->i . 'min'
+                            : $diff->h . 'h ' . $diff->i . 'min')
+                        : '—';
                 @endphp
-                <tr class="{{ $isAlerte ? 'table-danger' : '' }}">
+                <tr>
                     <td>{{ $loop->iteration }}</td>
                     <td>
                         <a href="{{ route('trainees.show', $doc->trainee) }}">
@@ -161,23 +122,13 @@
                         {{ $deadline ? $deadline->format('d/m/Y H:i') : '—' }}
                     </td>
                     <td>
-                        @if($isAlerte)
-                            <span class="badge badge-danger">
-                                <i class="fas fa-exclamation-triangle"></i> Alerte: {{ $hoursLeft }}h restantes
-                            </span>
-                        @elseif($hoursLeft !== null)
-                            @if($hoursLeft <= 24)
-                                <span class="badge badge-warning">
-                                    <i class="fas fa-clock"></i> {{ $hoursLeft }}h restantes
-                                </span>
-                            @else
-                                <span class="badge badge-success">
-                                    <i class="fas fa-check"></i> {{ $hoursLeft }}h restantes
-                                </span>
-                            @endif
-                        @else
-                            <span class="badge badge-secondary">—</span>
-                        @endif
+                        <span class="badge badge-danger">
+                            <i class="fas fa-exclamation-triangle"></i> Expiré
+                        </span>
+                        <br>
+                        <small class="text-danger font-weight-bold">
+                            <i class="fas fa-hourglass-end"></i> Retard: {{ $overdue }}
+                        </small>
                     </td>
                     <td>
                         <a href="{{ route('documents.show', $doc) }}"

@@ -127,6 +127,7 @@ return [
             'submenu' => [
                 ['text' => 'Liste', 'url' => 'documents/bac', 'icon' => 'fas fa-fw fa-list'],
                 ['text' => 'Retraits temporaires', 'url' => 'documents/bac/temp-out', 'icon' => 'fas fa-fw fa-clock', 'label' => '!', 'label_color' => 'warning'],
+                ['text' => 'Écoulé', 'url' => 'documents/bac/ecoule', 'icon' => 'fas fa-fw fa-exclamation-triangle', 'label' => '!', 'label_color' => 'danger'],
                 ['text' => 'Retraits définitifs', 'url' => 'documents/bac/final-out', 'icon' => 'fas fa-fw fa-sign-out-alt', 'label' => '!', 'label_color' => 'danger'],
             ],
         ],

@@ -1,3 +1,28 @@
+# ISMO Archive
+
+## 🚀 Nouvelles Fonctionnalités : Gestion des Délais de Retrait (Baccalauréat)
+
+Afin d'améliorer le suivi des retraits temporaires et de respecter les délais stricts de l'administration, de nouvelles fonctionnalités de reporting et d'alerte ont été intégrées pour la gestion documentaire (Bac) :
+
+### 🔴 Système d'Alerte Rouge (Pré-expiration 40h - 48h)
+* Une alerte visuelle dynamique a été mise en place sur l'interface principale des **retraits temporaires**.
+* Lorsqu'un document franchit le cap des 40 heures de retrait sans avoir été retourné, sa ligne est surlignée en rouge (`table-danger`) et un badge critique affiche le temps restant exact avant l'expiration légale de 48 heures.
+* Les statistiques rapides au sommet de la page s'actualisent pour comptabiliser en temps réel les retraits nécessitant une intervention urgente de l'administration.
+
+### ⏳ Nouvel Espace "Écoulé" (Post-expiration)
+* Un filtre logique a été implémenté au niveau du Controller : tout document de type Baccalauréat dépassant strictement le délai autorisé de 48 heures est automatiquement retiré de la file active.
+* Ces éléments sont basculés intelligemment (via l'historique des requêtes `movements`) vers un **nouvel espace dédié nommé "Écoulé"**.
+* Accessible depuis le menu principal (`Gestion des Documents > Baccalauréat > Écoulé`), cet espace liste l'ensemble des retraits échus tout en affichant le retard de retour accumulé (calculé en jours, heures et minutes) afin de faciliter les rappels ou sanctions.
+
+### 🛠 Modifications Techniques Apportées :
+1. **Création du fichier vue `resources/views/documents/ecoule.blade.php`** affichant exclusivement la liste expirée.
+2. **Ajout de la méthode `ecoule(Request $request)`** dans `app/Http/Controllers/DocumentController.php` pour filtrer les mouvements avec une date butoir (`deadline`) dépassée (`< now()`).
+3. **Mise à jour de `tempOut(Request $request)`** pour ignorer les items périmés (`>= now()`).
+4. **Enregistrement de la nouvelle route** `documents/bac/ecoule` dans `routes/web.php`.
+5. **Ajout du menu interactif** dans la sidebar configuré via `config/adminlte.php`.
+
+---
+
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">

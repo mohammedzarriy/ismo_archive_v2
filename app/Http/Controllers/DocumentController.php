@@ -117,6 +117,10 @@ class DocumentController extends Controller
         $documents = Document::with('trainee.filiere', 'movements')
             ->where('type', 'Bac')
             ->where('status', 'Temp_Out')
+            ->whereHas('movements', function($q) {
+                $q->where('action_type', 'Sortie')
+                  ->where('deadline', '>=', now());
+            })
             ->when($request->filiere_id, fn($q) =>
                 $q->whereHas('trainee', fn($q) =>
                     $q->where('filiere_id', $request->filiere_id)))
@@ -128,6 +132,32 @@ class DocumentController extends Controller
             ->withQueryString();
 
         return view('documents.temp-out', compact('documents', 'filieres', 'groups'));
+    }
+
+    // 🔴 Retraits écoulés (NEW)
+    public function ecoule(Request $request)
+    {
+        $filieres = Filiere::all();
+        $groups   = Trainee::distinct()->pluck('group');
+
+        $documents = Document::with('trainee.filiere', 'movements')
+            ->where('type', 'Bac')
+            ->where('status', 'Temp_Out')
+            ->whereHas('movements', function($q) {
+                $q->where('action_type', 'Sortie')
+                  ->where('deadline', '<', now());
+            })
+            ->when($request->filiere_id, fn($q) =>
+                $q->whereHas('trainee', fn($q) =>
+                    $q->where('filiere_id', $request->filiere_id)))
+            ->when($request->group, fn($q) =>
+                $q->whereHas('trainee', fn($q) =>
+                    $q->where('group', $request->group)))
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('documents.ecoule', compact('documents', 'filieres', 'groups'));
     }
 
     // 🔴 Retraits définitifs (NEW)

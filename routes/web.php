@@ -32,6 +32,7 @@ Route::middleware(['auth'])->group(function () {
     // Documents static routes — كلها قبل resource
     Route::get('documents/bac',              [DocumentController::class, 'index'])->name('documents.bac')->defaults('type', 'Bac');
     Route::get('documents/bac/temp-out',     [DocumentController::class, 'tempOut'])->name('documents.bac.temp-out');
+    Route::get('documents/bac/ecoule',       [DocumentController::class, 'ecoule'])->name('documents.bac.ecoule');
     Route::get('documents/bac/final-out',    [DocumentController::class, 'finalOut'])->name('documents.bac.final-out');
     Route::get('documents/diplome',          [DocumentController::class, 'index'])->name('documents.diplome')->defaults('type', 'Diplome');
     Route::get('documents/diplome/prets',    [DocumentController::class, 'prets'])->name('documents.diplome.prets');

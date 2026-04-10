@@ -102,6 +102,12 @@ class TraineeController extends Controller
                          ->with('success', 'Stagiaire supprimé ✅');
     }
 
+    public function promouvoir(Trainee $trainee)
+    {
+        $trainee->update(['statut' => 'diplome']);
+        return response()->json(['success' => true, 'message' => 'Stagiaire promu en Diplômé !']);
+    }
+
     public function import(Request $request)
     {
         $request->validate([

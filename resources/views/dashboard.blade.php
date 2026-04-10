@@ -82,7 +82,7 @@
                 <p>Diplômés — En attente</p>
             </div>
             <div class="icon"><i class="fas fa-user-clock"></i></div>
-            <a href="{{ url('diplomes/en-attente') }}" class="small-box-footer">
+            <a href="{{ route('diplomes.prets') }}" class="small-box-footer">
                 Voir tout
             </a>
         </div>

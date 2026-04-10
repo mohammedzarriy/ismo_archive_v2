@@ -38,6 +38,8 @@ Route::middleware(['auth'])->group(function () {
 
     // Trainees
     Route::resource('trainees', TraineeController::class);
+    Route::post('trainees/{trainee}/promouvoir', [TraineeController::class, 'promouvoir'])->name('trainees.promouvoir');
+
 
     // Documents static routes — كلها قبل resource
     Route::get('documents/bac',              [DocumentController::class, 'index'])->name('documents.bac')->defaults('type', 'Bac');
@@ -103,10 +105,12 @@ Route::middleware(['auth'])->group(function () {
 
     });
 
+    // Diplômes prêts — gestion remise et signature
+    Route::get('diplomes-prets',                              [DiplomesPrêtsController::class, 'index'])->name('diplomes.prets');
+    Route::post('/diplomes-prets/{trainee}/check-promote',   [DiplomesPrêtsController::class, 'checkAndPromote'])->name('diplomes.checkPromote');
+    Route::post('/diplomes-prets/{trainee}/signature',       [DiplomesPrêtsController::class, 'saveSignature'])->name('diplomes.saveSignature');
+
 });
-// signateur validation path 
-Route::post('/diplomes-prets/{trainee}/check-promote', [DiplomesPrêtsController::class, 'checkAndPromote'])->name('diplomes.checkPromote');
-Route::post('/diplomes-prets/{trainee}/signature',     [DiplomesPrêtsController::class, 'saveSignature'])->name('diplomes.saveSignature');
 
 // Routes avec rôles (admin, agent)
 Route::middleware(['auth', 'role:admin|agent'])->group(function () {
@@ -116,6 +120,5 @@ Route::middleware(['auth', 'role:admin|agent'])->group(function () {
 
 });
 
-Route::get('diplomes-prets', [DiplomesPrêtsController::class, 'index'])->name('diplomes.prets');
 // Auth routes (Laravel Breeze / Jetstream)
 require __DIR__.'/auth.php';

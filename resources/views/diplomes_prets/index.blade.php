@@ -7,9 +7,14 @@
             <i class="fas fa-graduation-cap text-success"></i>
             Diplômés — Documents à récupérer
         </h1>
-        <span class="badge badge-success" style="font-size:14px">
-            {{ $trainees->total() }} diplômés
-        </span>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge badge-success mr-2" style="font-size:14px">
+                {{ $trainees->total() }} diplômés
+            </span>
+            <button type="button" class="btn btn-success" data-toggle="modal" data-target="#modalPromouvoir">
+                <i class="fas fa-user-graduate"></i> Promouvoir un diplômé
+            </button>
+        </div>
     </div>
 @stop
 
@@ -256,15 +261,92 @@
     </div>
 </div>
 
+{{-- MODAL PROMOUVOIR UN DIPLÔMÉ --}}
+<div class="modal fade" id="modalPromouvoir" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-user-graduate"></i> Promouvoir un stagiaire en diplômé
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">
+                    <i class="fas fa-info-circle"></i>
+                    Sélectionnez un stagiaire pour changer son statut en <strong>Diplômé</strong>.
+                    Il apparaîtra ensuite dans cette liste.
+                </p>
+                <div class="form-group">
+                    <label>Rechercher un stagiaire</label>
+                    <select id="selectTraineePromote" class="form-control select2" style="width:100%">
+                        <option value="">— Tapez un nom ou CIN —</option>
+                        @foreach(\App\Models\Trainee::whereIn('statut', ['en_formation','redoublant','abandon'])->orderBy('last_name')->get() as $tr)
+                            <option value="{{ $tr->id }}">
+                                {{ $tr->last_name }} {{ $tr->first_name }}
+                                &nbsp;({{ $tr->cin }}) — {{ $tr->filiere?->nom_filiere ?? '—' }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div id="promoteResult" class="mt-2" style="display:none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">
+                    <i class="fas fa-times"></i> Annuler
+                </button>
+                <button type="button" id="btnConfirmPromote" class="btn btn-success" disabled>
+                    <i class="fas fa-check"></i> Confirmer la promotion
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @stop
 
 @section('js')
 <script>
 $('.select2').select2();
+$('#selectTraineePromote').select2({ dropdownParent: $('#modalPromouvoir'), width: '100%' });
 $('#prets-table').DataTable({
     language: { url: '//cdn.datatables.net/plug-ins/1.10.19/i18n/French.json' },
     paging: false,
     scrollX: true
+});
+
+// ── Modal : Promouvoir un diplômé ──
+$('#selectTraineePromote').on('change', function () {
+    const val = $(this).val();
+    $('#btnConfirmPromote').prop('disabled', !val);
+    $('#promoteResult').hide();
+});
+
+$('#btnConfirmPromote').on('click', function () {
+    const traineeId = $('#selectTraineePromote').val();
+    if (!traineeId) return;
+    const $btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> En cours...');
+
+    $.ajax({
+        url: `/trainees/${traineeId}/promouvoir`,
+        method: 'POST',
+        data: {
+            _token: '{{ csrf_token() }}'
+        }
+    })
+    .done(() => {
+        toastr.success('Stagiaire promu en Diplômé avec succès !');
+        $('#modalPromouvoir').modal('hide');
+        setTimeout(() => location.reload(), 1000);
+    })
+    .fail(xhr => {
+        const msg = xhr.responseJSON?.message ?? 'Erreur serveur.';
+        toastr.error(msg);
+        $('#promoteResult')
+            .html(`<div class="alert alert-danger py-2"><i class="fas fa-times-circle"></i> ${msg}</div>`)
+            .show();
+    })
+    .always(() => $btn.prop('disabled', false).html('<i class="fas fa-check"></i> Confirmer la promotion'));
 });
 
 // ── Promotion ──
